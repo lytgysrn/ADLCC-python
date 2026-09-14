@@ -1,0 +1,31 @@
+{
+ "name": "BC",
+ "n": 569,
+ "d": 30,
+ "true_K": 2,
+ "classifier": "knn",
+ "n_local_centers": 7,
+ "groups": [
+  [
+   74,
+   249
+  ],
+  [
+   516,
+   408
+  ]
+ ],
+ "K": 2,
+ "coverage": 78.7,
+ "temp": {
+  "ARI": 0.964137,
+  "Purity": 0.991071,
+  "NMI": 0.930569
+ },
+ "final_seed2025": {
+  "ARI": 0.785511,
+  "Purity": 0.943761,
+  "NMI": 0.7256
+ },
+ "seconds_after_depth": 0.79
+}
