@@ -101,6 +101,18 @@ force one implementation.
   two levels for x to be a candidate.
 * Stability condition of a local center: proportion ≥ 0.5 (the paper writes > 0.5).
 * Cells of a single observation are dissolved before the GLS is computed.
+* Absorption and bonding are exclusive: a pair in which one side reaches the
+  other at least as well as itself (ρ ≥ 1) is a candidate for absorption only;
+  if that absorption is not accepted (host refuses, or the candidate has a
+  better host) the pair is not merged in that pass. Bonding is for peers, i.e.
+  pairs with ρ < 1 on both sides.
+* The leave-one-out background φ̄_w^{−s} of the absorption test uses the
+  reachable similarity of the full data; only the points of the candidate s are
+  removed from the reference set w is compared against (they are not removed
+  from the graph).
+* The no-new-weakest-link condition (eq. dip) is active as soon as either group
+  of a pair has internal links (b(singleton) = ∞ drops out of the minimum); a
+  pair of two singletons is never subject to it.
 * The depth-based kNN classifier uses the (unsymmetrised) depth-based
   similarity matrix, as in DLCC; the random forest is scikit-learn's
   `RandomForestClassifier(n_estimators=100, min_samples_leaf=3)`, equivalent to

@@ -18,14 +18,22 @@ Before anything is merged (Section 4.2.1):
     linked to, it is not a unit and takes part in no pass (its points follow the
     center they are most similar to at the end).
 
-For two groups A, B with a GLS contact (Section 4.2.2):
-  * absorption: A is absorbed by B when rho_{A|B} >= 1 and rho_{B|A} > phi_B
-    measured without A (a side that could be absorbed by several groups goes
-    to the one it reaches best);
-  * bond: two self-contained groups bond when, for both sides,
+For two groups A, B with a GLS contact (Section 4.2.2), the pair is admitted to
+exactly one of two kinds of merge, decided by whether one side reaches the
+other at least as well as itself:
+  * absorption (rho_{A|B} >= 1 for at least one side): A is absorbed by B when
+    rho_{A|B} >= 1 and rho_{B|A} > phi_B^{-A}, the background of B with A left
+    out of the reference set (the reachable similarity is the one of the full
+    data; only the points of A are removed from the set B is compared against).
+    A side that could be absorbed by several groups goes to the one it reaches
+    best; a pair in which one side has rho >= 1 but is not absorbed is not
+    merged in this pass -- it is a satellite, not a peer, and does not bond;
+  * bond (rho < 1 on both sides, i.e. two peers): the two bond when, for both
+    sides,
         rho_{s|.} > Q_th(s) = phi_s + omega_s^2 (max(q, phi_s) - phi_s),   q = 0.975,
-    and their GLS contact is not weaker than q times the weakest GLS link that
-    either group already relies on (no new weakest link).
+    and, once either group has internal links, their GLS contact is not weaker
+    than q times the weakest GLS link that either group already relies on (no
+    new weakest link).
 
 Every merge must be carried by a community-level contact (Section 4.2.3): on
 the depth graph, at least one pair of cells across the two sides must share
@@ -99,7 +107,10 @@ def _merge(groups, edges):
 
 
 def _bottleneck(cells, W):
-    """Weakest link of the maximum spanning tree of W over ``cells`` (inf for a singleton)."""
+    """Weakest link of the maximum spanning tree of W over ``cells`` (inf for a singleton).
+
+    Groups are connected in W = GLS by construction (every accepted merge needs a
+    positive GLS contact), so the tree always spans the group."""
     if len(cells) <= 1:
         return np.inf
     es = sorted(((W[i, j], i, j) for x, i in enumerate(cells) for j in cells[x + 1:] if W[i, j] > 0), reverse=True)
@@ -157,10 +168,10 @@ def contact_gain(sym_dm, dm0_order, save_lc, nbr, G):
     return dq
 
 
-def _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth=None, log=None, tag="L"):
+def _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth, log=None, tag="L"):
     """One agglomeration pass over ``groups``; returns the accepted (a, b) edges.
 
-    ``birth`` (weakest GLS link each group relies on) is only given at group level.
+    ``birth[g]`` is the weakest GLS link group g relies on (inf for a singleton).
     """
     K = len(groups)
     rho = np.zeros((K, K))
@@ -174,7 +185,9 @@ def _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth=None, log=None, ta
             pairs[(a, b)] = (ra, rb, oa, ob)
 
     def phi_without(w, s):
-        """Raw background of w with the candidate s left out of the outside."""
+        """Raw background of w with the candidate s left out of the reference set:
+        mean over x in w of  mean_{z not in w u s} reach(x, z) / intra-reachability(x).
+        The reachable similarity is that of the full data (``all_reach``)."""
         mask = np.ones(all_reach.shape[0], bool)
         mask[pts[w]] = False
         mask[pts[s]] = False
@@ -195,19 +208,24 @@ def _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth=None, log=None, ta
     for (a, b), (ra, rb, oa, ob) in pairs.items():
         verdict = "rej"
         if max(ra, rb) >= 1.0:
+            # one side has no boundary relative to the other: absorption or nothing
             if chosen.get(a) == b or chosen.get(b) == a:
                 verdict = "ABS"
             elif b in valid.get(a, ()) or a in valid.get(b, ()):
-                verdict = "nbest"
+                verdict = "nbest"      # absorbable, but not by this neighbour
             else:
-                verdict = "bgd"
+                verdict = "bgd"        # the host finds the candidate worse than its background
         else:
+            # two peers: bond when both sides pass their own threshold
             pa, pb = st[a][1], st[b][1]
             qa = pa + oa ** 2 * (max(q, pa) - pa)
             qb = pb + ob ** 2 * (max(q, pb) - pb)
             if ra > qa and rb > qb:
                 verdict = "acc"
-                if birth is not None and G[np.ix_(groups[a], groups[b])].max() < q * min(birth[a], birth[b]):
+                # no new weakest link (eq. dip), active once either group has
+                # internal links (the weaker of the two bottlenecks is finite)
+                bmin = min(birth[a], birth[b])
+                if np.isfinite(bmin) and G[np.ix_(groups[a], groups[b])].max() < q * bmin:
                     verdict = "DIP"
         if verdict in ("ABS", "acc") and dq[np.ix_(groups[a], groups[b])].max() <= 0:
             enclosed = verdict == "ABS" and ((chosen.get(a) == b and oa == 0.0) or (chosen.get(b) == a and ob == 0.0))
@@ -217,7 +235,7 @@ def _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth=None, log=None, ta
             edges.append((a, b))
         if log:
             extra = f" dq={dq[np.ix_(groups[a], groups[b])].max():.4f}"
-            if birth is not None:
+            if len(groups[a]) > 1 or len(groups[b]) > 1:
                 extra += f" contact={G[np.ix_(groups[a], groups[b])].max():.3f} birth={min(birth[a], birth[b]):.3f}"
             log(f"{tag} {groups[a]}-{groups[b]} |{len(pts[a])}|{len(pts[b])}| rho={ra:.3f}/{rb:.3f} "
                 f"om={oa:.2f}/{ob:.2f} phi={st[a][2]:.3f}/{st[b][2]:.3f} {verdict}{extra}")
@@ -328,18 +346,19 @@ def group_local_centers(save_lc, sym_sm, nbr_save, sym_dm, dm0_order, q=Q_SLACK,
         log(f"cells without a boundary: {[i for i in range(n) if i not in unit]}")
     dq = contact_gain(sym_dm, dm0_order, save_lc, nbr, G)
 
+    # the same pass over the singletons of the units and then over the groups,
+    # until nothing changes (the singleton pass has all bottlenecks infinite)
     groups = [[i] for i in unit]
-    edges = _pass(groups, [nbr[i] for i in unit], [cell[i] for i in unit], sym_dm, G, q, all_reach, dq, log=log, tag="L0")
-    groups = _merge(groups, edges)
-
+    tag = "L0"
     while len(groups) > 1:
         pts = [np.concatenate([nbr[i] for i in g]) for g in groups]
         st = [_stats(sym_dm, all_reach, p) if len(g) > 1 else cell[g[0]] for g, p in zip(groups, pts)]
         birth = [_bottleneck(g, G) for g in groups]
-        edges = _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth=birth, log=log, tag="L+")
+        edges = _pass(groups, pts, st, sym_dm, G, q, all_reach, dq, birth, log=log, tag=tag)
         if not edges:
             break
         groups = _merge(groups, edges)
+        tag = "L+"
 
     unit_arr = np.array(unit, int)
     owner = unit_arr[np.argmax(sym_dm[:, save_lc[unit_arr]], axis=1)]
