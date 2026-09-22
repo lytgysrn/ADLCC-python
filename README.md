@@ -41,12 +41,12 @@ python experiments/run_paper.py --datasets Iris Wine Anuran
 python experiments/make_figures.py
 ```
 
-`run_paper.py` computes the depth stage once per data set (cached under `experiments/cache/`) and, for random-forest data sets, repeats the final step with seeds 0–99 and reports the mean. The values in `experiments/results/` are those reported in the paper. Iris, Wine and BC come from scikit-learn; the other files are in `data/`. Wine, Pa, BC and Seg are standardised.
+`run_paper.py` computes the depth stage once per data set (cached under `experiments/cache/`) and, for random-forest data sets, repeats the final step with seeds 0–99 and reports the mean. `make_figures.py` draws the figures from that run. Iris, Wine and BC come from scikit-learn; the other files are in `data/`. Wine, Pa, BC and Seg are standardised.
 
 ## Structure
 
 * `adlcc/`: depth, local centers, grouping, temporary clusters, classification
-* `experiments/`: `run_paper.py`, `make_figures.py`, and the saved results
+* `experiments/`: `run_paper.py` and `make_figures.py`
 * `data/`: data files used by the experiments
 
 Other datasets used with the original DLCC code: [https://github.com/lytgysrn/dlcc](https://github.com/lytgysrn/dlcc)
