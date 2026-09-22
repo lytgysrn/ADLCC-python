@@ -167,7 +167,7 @@ def intra_reachability(reach):
 
 def centers_isolated(dm0_order, nbr_save, save_lc):
     """True when no local center is among the first (max cell size / 2) neighbours of another one."""
-    if len(save_lc) == 2:
+    if len(save_lc) < 2:
         return True
     size = round(max(len(nbr) for nbr in nbr_save) / 2)
     others = set(int(c) for c in save_lc)

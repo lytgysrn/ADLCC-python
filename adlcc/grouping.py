@@ -13,10 +13,11 @@ drops once B is joined).
 Before anything is merged (Section 4.2.1):
   * isolation: if no center lies within half the largest cell of another center,
     the cells are the groups;
-  * cells without a boundary: a cell whose raw phi >= 1 reaches the outside at
+    * cells without a boundary: a cell whose raw phi >= 1 reaches the outside at
     least as well as itself; if it is also looser than every cell it is directly
-    linked to, it is not a unit and takes part in no pass (its points follow the
-    center they are most similar to at the end).
+    linked to, it is not a unit and takes part in no pass. After the units are
+    grouped, every observation is assigned to the retained local center it is
+    most similar to, so points of a set-aside cell join a unit.
 
 For two groups A, B with a GLS contact (Section 4.2.2), the pair is admitted to
 exactly one of two kinds of merge, decided by whether one side reaches the
@@ -335,7 +336,7 @@ def group_local_centers(save_lc, sym_sm, nbr_save, sym_dm, dm0_order, q=Q_SLACK,
     np.fill_diagonal(G, 0.0)
     all_reach = reachable_similarity(sym_dm)
 
-    if n > 2 and centers_isolated(dm0_order, nbr, save_lc):
+    if n >= 2 and centers_isolated(dm0_order, nbr, save_lc):
         if log:
             log("local centers isolated: cells are the groups")
         return {"group_list": [np.array([c]) for c in save_lc], "temp_clus": list(nbr)}

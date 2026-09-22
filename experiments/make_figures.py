@@ -4,6 +4,8 @@
 
 * Figure 5, A-DLCC panels: scatter plots of Starbeam, Blend, Bainba and Agg
   coloured by the A-DLCC clusters.
+* Figures 6 and 7: the same three-panel t-SNE rows for Iris, Wine, Seed
+  and for Pa, BC, stacked into ``NEWPAPER/combine_1.png`` and ``combine_2.png``.
 * Figures 8 and 9: t-SNE embeddings of Seg, Yale-B, Optidigits and Anuran with
   three panels each: ground truth, temporary clusters with the local centers
   (triangles), and the A-DLCC result.
@@ -59,6 +61,39 @@ def synthetic_panel(name):
     plt.close(fig)
 
 
+def tsne_row(axes, name, emb, y, r, size):
+    """One data set, three panels, same layout as ``tsne_panels``."""
+    for ax in axes:
+        _style(ax)
+        ax.set_xticks([])
+        ax.set_yticks([])
+    _scatter(axes[0], emb, np.asarray(y).ravel() + 1, size)
+    axes[0].set_title(f"Ground truth ($K={len(np.unique(y))}$)", fontsize=10)
+    axes[0].set_ylabel(name, fontsize=11)
+    _scatter(axes[1], emb, r["temp_labels"], size, lcs=r["local_centers"])
+    axes[1].set_title("Temporary clusters and local centers", fontsize=10)
+    _scatter(axes[2], emb, r["labels"], size)
+    axes[2].set_title(f"A-DLCC ($\\hat K={len(np.unique(r['labels']))}$)", fontsize=10)
+
+
+def stacked_tsne(names, path):
+    """Several data sets, one three-panel row each, written as a single figure."""
+    rows = []
+    for name in names:
+        X, y = load_dataset(name)
+        r = np.load(os.path.join(RESULTS, f"{name}.npz"))
+        emb = TSNE(n_components=2, random_state=2025, init="pca", perplexity=30).fit_transform(np.asarray(X, float))
+        rows.append((name, emb, np.asarray(y).ravel(), r))
+    fig, axes = plt.subplots(len(names), 3, figsize=(13, 4.0 * len(names)))
+    if len(names) == 1:
+        axes = np.array([axes])
+    for i, (name, emb, y, r) in enumerate(rows):
+        tsne_row(axes[i], name, emb, y, r, 8 if len(y) < 800 else 4)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def tsne_panels(name):
     X, y = load_dataset(name)
     y = np.asarray(y).ravel()
@@ -87,6 +122,11 @@ if __name__ == "__main__":
         if os.path.exists(os.path.join(RESULTS, f"{name}.npz")):
             synthetic_panel(name)
             print("wrote", f"{name.lower()}_adlcc.png", flush=True)
+    paper = os.path.normpath(os.path.join(HERE, "..", "..", "NEWPAPER"))
+    stacked_tsne(["Iris", "Wine", "Seed"], os.path.join(paper, "combine_1.png"))
+    print("wrote combine_1.png", flush=True)
+    stacked_tsne(["Pa", "BC"], os.path.join(paper, "combine_2.png"))
+    print("wrote combine_2.png", flush=True)
     for name in ["Seg", "Yale-B", "Optidigits", "Anuran"]:
         if os.path.exists(os.path.join(RESULTS, f"{name}.npz")):
             tsne_panels(name)
